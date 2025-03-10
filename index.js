@@ -61,7 +61,7 @@ app.post("/register-admin", async (req, res) => {
   try {
     const { names, contact, email, password } = req.body;
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email, contact });
     if (existingUser) {
       return res.status(400).json({ message: "Email already registered" });
     }
