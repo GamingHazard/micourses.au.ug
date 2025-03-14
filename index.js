@@ -56,18 +56,27 @@ app.get("/cloudinary-signature/:preset", async (req, res) => {
   res.json({ timestamp, signature });
 });
 
-//endpoint to register a user in the backend
+//endpoint to register an admin in the backend
 app.post("/register-admin", async (req, res) => {
   try {
     const { names, contact, email, password } = req.body;
 
-    const existingUser = await User.findOne({ email, contact });
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: "Email already registered" });
     }
-
+    if (existingUser.contact === contact) {
+      return res.status(400).json({ message: "number already registered" });
+    }
+    // Hash the password before saving the user
+    const hashedPassword = await bcrypt.hash(password, 10);
     //create a new user
-    const newUser = new User({ names, contact, email, password });
+    const newUser = new User({
+      names,
+      contact,
+      email,
+      password: hashedPassword,
+    });
 
     //generate and store the verification token
     newUser.verificationToken = crypto.randomBytes(20).toString("hex");
@@ -77,8 +86,19 @@ app.post("/register-admin", async (req, res) => {
 
     //send the verification email to the user
     sendVerificationEmail(newUser.email, newUser.verificationToken);
-
-    res.status(200).json({ message: "Registration successful" });
+    // Return all user details including user ID and token
+    const profile = {
+      names: names,
+      email: newUser.email,
+      contact: newUser.contact,
+      verified: newUser.verified,
+    };
+    res.status(200).json({
+      message: "Registration successful",
+      data: profile,
+      token,
+      id: newUser._id,
+    });
   } catch (error) {
     console.log("error registering user", error);
     res.status(500).json({ message: "error registering user" });
@@ -129,6 +149,50 @@ app.post("/admin-login", async (req, res) => {
   }
 });
 
+//  Endpoint for admin Login
+app.post("/admin-login", async (req, res) => {
+  try {
+    const { identifier, password } = req.body;
+
+    // Find user by email or phone
+    const user = await Admin.findOne({
+      $or: [{ email: identifier }, { phone: identifier }],
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "Wrong Email or Contact" });
+    }
+
+    // Check if the password matches
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        message: "Wrong password",
+      });
+    }
+
+    // Generate JWT token with a secret key
+    const token = jwt.sign({ userId: user._id }, "your_secret_key_here", {
+      expiresIn: "1h",
+    });
+    const profile = {
+      names: user.names,
+      email: user.email,
+      contact: user.contact,
+      verified: user.verified,
+    };
+    // Respond with the token and user information including user ID
+    res.status(200).json({
+      token,
+      id: user._id,
+      data: profile,
+    });
+  } catch (error) {
+    console.error("Error during login", error);
+    res.status(500).json({ message: "Login failed" });
+  }
+});
+
 app.post("/register-user", async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -170,10 +234,10 @@ const sendVerificationEmail = async (email, verificationToken) => {
 
   //compose the email message
   const mailOptions = {
-    from: "micourses.com",
+    from: "mimobilecourses.com",
     to: email,
     subject: "Email Verification",
-    text: `please click the following link to verify your email http://localhost:3000/verify/${verificationToken}`,
+    text: `please click the following link to verify your email https://micourses-au-ug.onrender.com/verify/${verificationToken}`,
   };
 
   try {
