@@ -61,7 +61,7 @@ app.post("/register-admin", async (req, res) => {
   try {
     const { names, contact, email, password } = req.body;
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await Admin.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: "Email already registered" });
     }
@@ -69,10 +69,10 @@ app.post("/register-admin", async (req, res) => {
     // Hash the password before saving the user
     const hashedPassword = await bcrypt.hash(password, 10);
     //create a new user
-    const newUser = new User({
-      names,
-      contact,
-      email,
+    const newUser = new Admin({
+      names: names,
+      contact: contact,
+      email: email,
       password: hashedPassword,
     });
 
