@@ -65,9 +65,7 @@ app.post("/register-admin", async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ message: "Email already registered" });
     }
-    if (existingUser.contact === contact) {
-      return res.status(400).json({ message: "number already registered" });
-    }
+
     // Hash the password before saving the user
     const hashedPassword = await bcrypt.hash(password, 10);
     //create a new user
