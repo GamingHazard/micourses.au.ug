@@ -114,7 +114,7 @@ app.post("/admin-login", async (req, res) => {
 
     // Find user by email or phone
     const user = await Admin.findOne({
-      $or: [{ email: identifier }, { phone: identifier }],
+      $or: [{ email: identifier }, { contact: identifier }],
     });
 
     if (!user) {
