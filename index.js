@@ -62,14 +62,9 @@ app.post("/register-admin", async (req, res) => {
   try {
     const { names, contact, email, password } = req.body;
 
-    const existingUser = await Admin.findOne({ email, contact });
-    if (existingUser.email === email) {
+    const existingUser = await Admin.findOne({ email });
+    if (existingUser) {
       return res.status(400).json({ message: "Email already registered" });
-    }
-    if (existingUser.contact === contact) {
-      return res
-        .status(400)
-        .json({ message: "phone number already registered" });
     }
 
     // Hash the password before saving the user
