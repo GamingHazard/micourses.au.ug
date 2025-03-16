@@ -142,7 +142,7 @@ app.post("/admin-login", async (req, res) => {
         names: user.names,
         email: user.email,
         profilePicture: user.profilePicture,
-        phone: user.phone,
+        contact: user.contact,
       },
     });
   } catch (error) {
