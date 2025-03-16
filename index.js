@@ -10,6 +10,7 @@ const port = 3000;
 const cors = require("cors");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
+const path = require("path");
 
 app.use(
   cors({
