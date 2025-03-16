@@ -95,7 +95,7 @@ app.post("/register-admin", async (req, res) => {
       expiresIn: "1h",
     });
     const profile = {
-      names: names,
+      names: newUser.names,
       email: newUser.email,
       contact: newUser.contact,
       verified: newUser.verified,
