@@ -59,6 +59,7 @@ app.get("/cloudinary-signature/:preset", async (req, res) => {
   res.json({ timestamp, signature });
 });
 
+// AUTHENTICATION
 //endpoint to register an admin in the backend
 app.post("/register-admin", async (req, res) => {
   try {
@@ -299,21 +300,106 @@ app.post("/login", async (req, res) => {
   }
 });
 
-//endpoint to access all the users except the logged in the user
-app.get("/user/:userId", (req, res) => {
-  try {
-    const loggedInUserId = req.params.userId;
+// FORGOT PASSWORD ENDPOINTS
+// send random code to user
+app.post("/get-code", async (req, res) => {
+  const { email } = req.body;
 
-    User.find({ _id: { $ne: loggedInUserId } })
-      .then((users) => {
-        res.status(200).json(users);
-      })
-      .catch((error) => {
-        console.log("Error: ", error);
-        res.status(500).json("errror");
-      });
+  try {
+    // Check if the user exists
+    const user = await Admin.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Generate 5-digit alphanumeric code
+    const resetCode = crypto.randomBytes(3).toString("hex");
+
+    // Save the reset code to the user's document in the database
+    user.resetCode = resetCode;
+    await user.save();
+
+    // Configure the nodemailer transporter
+    const transporter = nodemailer.createTransport({
+      service: "gmail", // Change to your email service provider
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    // Email options
+    const mailOptions = {
+      from: "uga-school.com",
+      to: email,
+      subject: "Password Reset Code",
+      text: `Your password reset code is: ${resetCode}`,
+    };
+
+    // Send the email
+    await transporter.sendMail(mailOptions);
+    res.json({ message: "Reset code sent to email" });
   } catch (error) {
-    res.status(500).json({ message: "error getting the users" });
+    console.error("Error in /get-code:", error);
+    res.status(500).json({ message: "An error occurred", error });
+  }
+});
+
+// verify the random  code
+app.post("/verify-code", async (req, res) => {
+  const { email, code } = req.body;
+
+  try {
+    // Query the database to find a user with the provided email and reset code
+    const user = await Admin.findOne({ email, resetCode: code });
+
+    // If no user is found, return an error
+    if (!user) {
+      return res.status(400).json({ message: "Invalid code or email" });
+    }
+
+    // Generate a temporary JWT token for password reset
+    const resetToken = jwt.sign({ email }, process.env.JWT_SECRET, {
+      expiresIn: "15m",
+    });
+    // Clear the reset code after successful verification to prevent reuse
+    user.resetCode = "";
+    await user.save();
+
+    res.status(200).json({
+      message: "Code verified",
+      resetToken,
+      user: {
+        id: user._id,
+      },
+    });
+  } catch (error) {
+    console.error("Error verifying reset code:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+//  Endpoint for resetting password
+app.post("/reset-password", async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Find the user by the decoded email
+    const user = await Admin.findOne({ email: decoded.email });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Hash the new password and save it
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetCode = ""; // Clear the reset code
+
+    // Save the updated user
+    await user.save();
+
+    res.json({ message: "Password reset successful" });
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    res.status(400).json({ message: "Invalid or expired token" });
   }
 });
 

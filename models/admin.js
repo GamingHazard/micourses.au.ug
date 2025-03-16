@@ -16,6 +16,10 @@ const adminSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  resetCode: {
+    type: String,
+    default: "",
+  },
   verificationToken: String,
 });
 
