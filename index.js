@@ -21,6 +21,7 @@ app.use(
 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, "public")));
 
 mongoose
   .connect(process.env.DB_URL, {
@@ -262,10 +263,10 @@ app.get("/verify/:token", async (req, res) => {
     user.verificationToken = undefined;
     await user.save();
 
-    res.status(200).json({ message: "Email verified successfully" });
+    res.status(200).sendFile("success.html", { root: "public" });
   } catch (error) {
     console.log("error getting token", error);
-    res.status(500).json({ message: "Email verification failed" });
+    res.status(500).sendFile("error.html", { root: "public" });
   }
 });
 
