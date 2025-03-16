@@ -9,6 +9,8 @@ const app = express();
 const port = 3000;
 const cors = require("cors");
 require("dotenv").config();
+const jwt = require("jsonwebtoken");
+
 app.use(
   cors({
     origin: "*",
@@ -19,7 +21,6 @@ app.use(
 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
-const jwt = require("jsonwebtoken");
 
 mongoose
   .connect(process.env.DB_URL, {
@@ -61,9 +62,14 @@ app.post("/register-admin", async (req, res) => {
   try {
     const { names, contact, email, password } = req.body;
 
-    const existingUser = await Admin.findOne({ email });
-    if (existingUser) {
+    const existingUser = await Admin.findOne({ email, contact });
+    if (existingUser.email === email) {
       return res.status(400).json({ message: "Email already registered" });
+    }
+    if (existingUser.contact === contact) {
+      return res
+        .status(400)
+        .json({ message: "phone number already registered" });
     }
 
     // Hash the password before saving the user
@@ -85,6 +91,9 @@ app.post("/register-admin", async (req, res) => {
     //send the verification email to the user
     sendVerificationEmail(newUser.email, newUser.verificationToken);
     // Return all user details including user ID and token
+    const token = jwt.sign({ userId: newUser._id }, secretKey, {
+      expiresIn: "1h",
+    });
     const profile = {
       names: names,
       email: newUser.email,
