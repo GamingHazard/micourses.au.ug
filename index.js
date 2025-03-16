@@ -79,12 +79,12 @@ app.post("/register-admin", async (req, res) => {
 
     //generate and store the verification token
     newUser.verificationToken = crypto.randomBytes(20).toString("hex");
+    //send the verification email to the user
+    sendVerificationEmail(newUser.email, newUser.verificationToken);
 
     //save the  user to the database
     await newUser.save();
 
-    //send the verification email to the user
-    sendVerificationEmail(newUser.email, newUser.verificationToken);
     // Return all user details including user ID and token
     const token = jwt.sign({ userId: newUser._id }, secretKey, {
       expiresIn: "1h",
