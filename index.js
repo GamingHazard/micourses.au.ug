@@ -152,29 +152,6 @@ app.post("/register-admin", async (req, res) => {
 app.post("/admin-login", async (req, res) => {
   try {
     const { identifier, password } = req.body;
-
-    // Validation regex patterns
-    const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/; // Valid email format
-    const contactPattern = /^[0-9]{10}$/; // Exactly 10-digit phone number
-    const minPasswordLength = 6;
-
-    // Validate Identifier (must be a valid email or 10-digit contact)
-    if (
-      !identifier ||
-      (!emailPattern.test(identifier) && !contactPattern.test(identifier))
-    ) {
-      return res.status(400).json({
-        message: "Invalid identifier. Use a valid email or 10-digit contact.",
-      });
-    }
-
-    // Validate Password (minimum 6 characters)
-    if (!password || password.length < minPasswordLength) {
-      return res
-        .status(400)
-        .json({ message: "Password must be at least 6 characters long." });
-    }
-
     // Find user by email or phone
     const user = await Admin.findOne({
       $or: [{ email: identifier }, { contact: identifier }],
