@@ -293,7 +293,7 @@ const generateSecretKey = () => {
 
 const secretKey = generateSecretKey();
 
-app.post("/login", async (req, res) => {
+app.post("/user-login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -430,6 +430,89 @@ app.post("/follow", async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "error in following a user" });
+  }
+});
+
+// CHANGE admin PASSWORD
+// Endpoint for User password
+app.post("/admin-password/:UserId", async (req, res) => {
+  try {
+    const { password } = req.body;
+    const adminid = req.params.UserId;
+
+    // Find user by ID
+    const user = await Admin.findById(adminid); // Assuming _id is used as the primary key
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    if (!password) {
+      return res.status(400).json({ message: "Password is required" });
+    }
+
+    // Validate the password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        message: "Invalid password. Please check and try again.",
+      });
+    }
+
+    // Respond with token and user info
+    res.status(200).json({
+      user: {
+        id: user._id,
+        fname: user.fname,
+        sname: user.sname,
+        email: user.email,
+        phone: user.phone,
+      },
+    });
+  } catch (error) {
+    console.error("Error during login:", error);
+    res.status(500).json({ message: "failed to get password" });
+  }
+});
+
+// endpoint for updating user password
+app.patch("/change-password/:id", async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const { id } = req.params;
+
+    // Find user by ID
+    const user = await Admin.findById(id); // Assuming _id is used as the primary key
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Validate the current password
+    const isPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        message: "Invalid current password. Please check and try again.",
+      });
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update the user's password in the database
+    user.password = hashedPassword;
+    await user.save();
+
+    res.status(200).json({
+      message: "Password changed successfully.",
+    });
+  } catch (error) {
+    console.error("Error updating password:", error);
+    res
+      .status(500)
+      .json({ message: "Password update failed due to a server error." });
   }
 });
 
