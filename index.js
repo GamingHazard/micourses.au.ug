@@ -60,11 +60,44 @@ app.get("/cloudinary-signature/:preset", async (req, res) => {
 });
 
 // AUTHENTICATION
-//endpoint to register an admin in the backend
+
 app.post("/register-admin", async (req, res) => {
   try {
     const { names, contact, email, password } = req.body;
 
+    // Validation regex patterns
+    const namesPattern = /^[a-zA-Z]+(?:\s{0,2}[a-zA-Z]+)*$/; // Only letters with max 2 spaces
+    const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/; // Valid email format
+    const contactPattern = /^[0-9]{10}$/; // Exactly 10 digits
+    const minPasswordLength = 6;
+
+    // Validate Names
+    if (!names || !namesPattern.test(names.trim())) {
+      return res.status(400).json({
+        message: "Invalid names. Only text allowed with max of 2 spaces.",
+      });
+    }
+
+    // Validate Email
+    if (!email || !emailPattern.test(email.trim())) {
+      return res.status(400).json({ message: "Invalid email format." });
+    }
+
+    // Validate Contact
+    if (!contact || !contactPattern.test(contact.trim())) {
+      return res.status(400).json({
+        message: "Invalid contact number. Must be exactly 10 digits.",
+      });
+    }
+
+    // Validate Password
+    if (!password || password.length < minPasswordLength) {
+      return res
+        .status(400)
+        .json({ message: "Password must be at least 6 characters long." });
+    }
+
+    // Check if email is already registered
     const existingUser = await Admin.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: "Email already registered" });
@@ -72,32 +105,37 @@ app.post("/register-admin", async (req, res) => {
 
     // Hash the password before saving the user
     const hashedPassword = await bcrypt.hash(password, 10);
-    //create a new user
+
+    // Create a new admin user
     const newUser = new Admin({
-      names: names,
-      contact: contact,
-      email: email,
+      names: names.trim(),
+      contact: contact.trim(),
+      email: email.trim(),
       password: hashedPassword,
     });
 
-    //generate and store the verification token
+    // Generate and store the verification token
     newUser.verificationToken = crypto.randomBytes(20).toString("hex");
-    //send the verification email to the user
+
+    // Send the verification email to the user
     sendVerificationEmail(newUser.email, newUser.verificationToken);
 
-    //save the  user to the database
+    // Save the user to the database
     await newUser.save();
 
-    // Return all user details including user ID and token
+    // Generate JWT Token
     const token = jwt.sign({ userId: newUser._id }, secretKey, {
       expiresIn: "1h",
     });
+
+    // Return user details (excluding password for security)
     const profile = {
       names: newUser.names,
       email: newUser.email,
       contact: newUser.contact,
       verified: newUser.verified,
     };
+
     res.status(200).json({
       message: "Registration successful",
       data: profile,
@@ -105,8 +143,8 @@ app.post("/register-admin", async (req, res) => {
       id: newUser._id,
     });
   } catch (error) {
-    console.log("error registering user", error);
-    res.status(500).json({ message: "error registering user" });
+    console.error("Error registering user:", error);
+    res.status(500).json({ message: "Error registering user" });
   }
 });
 
@@ -114,6 +152,28 @@ app.post("/register-admin", async (req, res) => {
 app.post("/admin-login", async (req, res) => {
   try {
     const { identifier, password } = req.body;
+
+    // Validation regex patterns
+    const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/; // Valid email format
+    const contactPattern = /^[0-9]{10}$/; // Exactly 10-digit phone number
+    const minPasswordLength = 6;
+
+    // Validate Identifier (must be a valid email or 10-digit contact)
+    if (
+      !identifier ||
+      (!emailPattern.test(identifier) && !contactPattern.test(identifier))
+    ) {
+      return res.status(400).json({
+        message: "Invalid identifier. Use a valid email or 10-digit contact.",
+      });
+    }
+
+    // Validate Password (minimum 6 characters)
+    if (!password || password.length < minPasswordLength) {
+      return res
+        .status(400)
+        .json({ message: "Password must be at least 6 characters long." });
+    }
 
     // Find user by email or phone
     const user = await Admin.findOne({
@@ -127,17 +187,15 @@ app.post("/admin-login", async (req, res) => {
     // Check if the password matches
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(401).json({
-        message: "Wrong password",
-      });
+      return res.status(401).json({ message: "Wrong password" });
     }
 
-    // Generate JWT token with a secret key
-    const token = jwt.sign({ userId: user._id }, "your_secret_key_here", {
+    // Generate JWT token
+    const token = jwt.sign({ userId: user._id }, secretKey, {
       expiresIn: "1h",
     });
 
-    // Respond with the token and user information including user ID
+    // Respond with the token and user information
     res.status(200).json({
       token,
       id: user._id,
@@ -147,50 +205,6 @@ app.post("/admin-login", async (req, res) => {
         profilePicture: user.profilePicture,
         contact: user.contact,
       },
-    });
-  } catch (error) {
-    console.error("Error during login", error);
-    res.status(500).json({ message: "Login failed" });
-  }
-});
-
-//  Endpoint for admin Login
-app.post("/admin-login", async (req, res) => {
-  try {
-    const { identifier, password } = req.body;
-
-    // Find user by email or phone
-    const user = await Admin.findOne({
-      $or: [{ email: identifier }, { phone: identifier }],
-    });
-
-    if (!user) {
-      return res.status(404).json({ message: "Wrong Email or Contact" });
-    }
-
-    // Check if the password matches
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        message: "Wrong password",
-      });
-    }
-
-    // Generate JWT token with a secret key
-    const token = jwt.sign({ userId: user._id }, "your_secret_key_here", {
-      expiresIn: "1h",
-    });
-    const profile = {
-      names: user.names,
-      email: user.email,
-      contact: user.contact,
-      verified: user.verified,
-    };
-    // Respond with the token and user information including user ID
-    res.status(200).json({
-      token,
-      id: user._id,
-      data: profile,
     });
   } catch (error) {
     console.error("Error during login", error);
