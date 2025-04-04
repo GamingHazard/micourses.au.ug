@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const GallerySchema = new mongoose.Schema(
+const CourseSchema = new mongoose.Schema(
   {
     courseName: {
       type: String,
@@ -15,17 +15,14 @@ const GallerySchema = new mongoose.Schema(
     duration: {
       type: String,
       required: true,
-      index: true,
     },
     description: {
       type: String,
       required: true,
-      index: true,
     },
     coverImage: {
-      url: { type: String, default: "" },
-      public_Id: { type: String, default: "" },
-      required: true,
+      url: { type: String, required: true, default: "" },
+      public_Id: { type: String, required: true, default: "" },
     },
     videos: {
       type: [
@@ -52,6 +49,6 @@ const GallerySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const Gallery = mongoose.model("Gallery", GallerySchema);
+const Courses = mongoose.model("Courses", CourseSchema);
 
-module.exports = Gallery;
+module.exports = Courses;
