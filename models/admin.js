@@ -11,6 +11,7 @@ const adminSchema = new mongoose.Schema({
   password: { type: String, required: true },
   profilePicture: { type: String },
   joindDate: { type: Date, default: Date.now },
+  recoverEmail: { type: String, default: "", unique: true },
 
   verified: {
     type: Boolean,

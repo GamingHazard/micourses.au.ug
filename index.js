@@ -42,6 +42,61 @@ app.listen(port, () => {
 
 const User = require("./models/users");
 const Admin = require("./models/admin");
+const Courses = require("./models/courses");
+
+// CONFIGURATIONS
+const sendVerificationEmail = async (email, verificationToken) => {
+  //create a nodemailer transporter
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
+  //compose the email message
+  const mailOptions = {
+    from: "mimobilecourses.com",
+    to: email,
+    subject: "Email Verification",
+    text: `please click the following link to verify your email https://micourses-au-ug.onrender.com/verify/${verificationToken}`,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.log("error sending email", error);
+  }
+};
+
+app.get("/verify/:token", async (req, res) => {
+  try {
+    const token = req.params.token;
+
+    const user = await Admin.findOne({ verificationToken: token });
+    if (!user) {
+      return res.status(404).sendFile("error.html", { root: "public" });
+    }
+
+    user.verified = true;
+    user.verificationToken = undefined;
+    await user.save();
+
+    res.status(200).sendFile("success.html", { root: "public" });
+  } catch (error) {
+    console.log("error getting token", error);
+    res.status(500).sendFile("error.html", { root: "public" });
+  }
+});
+
+const generateSecretKey = () => {
+  const secretKey = crypto.randomBytes(32).toString("hex");
+  return secretKey;
+};
+
+const secretKey = generateSecretKey();
 
 app.get("/cloudinary-signature/:preset", async (req, res) => {
   const { preset } = req.params; // Correctly access preset from the URL params
@@ -217,59 +272,6 @@ app.post("/register-user", async (req, res) => {
   }
 });
 
-const sendVerificationEmail = async (email, verificationToken) => {
-  //create a nodemailer transporter
-
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-
-  //compose the email message
-  const mailOptions = {
-    from: "mimobilecourses.com",
-    to: email,
-    subject: "Email Verification",
-    text: `please click the following link to verify your email https://micourses-au-ug.onrender.com/verify/${verificationToken}`,
-  };
-
-  try {
-    await transporter.sendMail(mailOptions);
-  } catch (error) {
-    console.log("error sending email", error);
-  }
-};
-
-app.get("/verify/:token", async (req, res) => {
-  try {
-    const token = req.params.token;
-
-    const user = await Admin.findOne({ verificationToken: token });
-    if (!user) {
-      return res.status(404).json({ message: "Invalid token" });
-    }
-
-    user.verified = true;
-    user.verificationToken = undefined;
-    await user.save();
-
-    res.status(200).sendFile("success.html", { root: "public" });
-  } catch (error) {
-    console.log("error getting token", error);
-    res.status(500).sendFile("error.html", { root: "public" });
-  }
-});
-
-const generateSecretKey = () => {
-  const secretKey = crypto.randomBytes(32).toString("hex");
-  return secretKey;
-};
-
-const secretKey = generateSecretKey();
-
 app.post("/user-login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -319,7 +321,7 @@ app.post("/get-code", async (req, res) => {
 
     // Email options
     const mailOptions = {
-      from: "uga-school.com",
+      from: "micourses.com",
       to: email,
       subject: "Password Reset Code",
       text: `Your password reset code is: ${resetCode}`,
@@ -394,6 +396,132 @@ app.post("/reset-password", async (req, res) => {
   }
 });
 
+// RECOVERY EMAIL VERIFICATION
+app.post("/verification-code", async (req, res) => {
+  const { email, id } = req.body;
+
+  try {
+    // Check if the user exists
+    const user = await Admin.findById({ id });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Generate 5-digit alphanumeric code
+    const resetCode = crypto.randomBytes(3).toString("hex");
+
+    // Save the reset code to the user's document in the database
+    user.resetCode = resetCode;
+    await user.save();
+
+    // Configure the nodemailer transporter
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    // Email options
+    const mailOptions = {
+      from: "micourses.com",
+      to: email,
+      subject: "Password Reset Code",
+      text: `Your email verification code  is: ${resetCode}`,
+    };
+
+    // Send the email
+    await transporter.sendMail(mailOptions);
+    res.json({ message: "Reset code sent to email" });
+  } catch (error) {
+    console.error("Error in /get-code:", error);
+    res.status(500).json({ message: "An error occurred", error });
+  }
+});
+// verify the   code sent to the email
+app.post("/verify-email", async (req, res) => {
+  const { id, code, email } = req.body;
+
+  try {
+    const user = await Admin.findById({ id });
+
+    // If no user is found, return an error
+    if (!user) {
+      return res.status(404).json({ message: "user not found" });
+    }
+
+    if (code === user.resetCode) {
+      user.recoverEmail = email;
+      user.resetCode = "";
+      await user.save();
+    }
+
+    res.status(200).json({
+      message: "Email verified",
+    });
+  } catch (error) {
+    console.error("Error verifying reset code:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// DELETE ACCOUNTS
+app.delete("/delete-admin", async (req, res) => {
+  const { id, password } = req.body;
+
+  try {
+    const user = await Admin.findById({ id });
+    if (!user) {
+      return res.status(404).json({ message: "user not found" });
+    }
+
+    // Validate the password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        message: "Invalid password. Please check and try again.",
+      });
+    } else {
+      Admin.findByIdAndDelete({ id });
+    }
+  } catch (error) {
+    console.error("Error deleting introduction content:", error.message);
+
+    // Handle unexpected errors
+    res.status(500).json({
+      message:
+        "An unexpected error occurred while deleting the introduction content. Please try again later.",
+    });
+  }
+});
+
+// UPDATING ENDPOINTS
+app.patch("/update-admin", async (req, res) => {
+  const { names, email, contact, recoveryEmail, id } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid({ id })) {
+    return res.status(400).json({ error: "Invalid user ID" });
+  }
+
+  try {
+    const updateFields = { names, email, contact, recoveryEmail };
+
+    const updatedUser = await Admin.findByIdAndUpdate(id, updateFields, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!updatedUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res
+      .status(200)
+      .json({ message: "User updated successfully", admin: updatedUser });
+  } catch (error) {
+    console.error("Update user error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 //endpoint to follow a particular user
 app.post("/follow", async (req, res) => {
   const { currentUserId, selectedUserId } = req.body;
@@ -490,6 +618,77 @@ app.patch("/change-password/:id", async (req, res) => {
     res
       .status(500)
       .json({ message: "Password update failed due to a server error." });
+  }
+});
+// Endpoint for  creating courses
+app.post("/create-course", async (req, res) => {
+  try {
+    const { courseName, sector, videos, duration, coverImage, adminId } =
+      req.body;
+
+    // Basic validation
+    if (
+      !courseName ||
+      !sector ||
+      !duration ||
+      !adminId ||
+      !Array.isArray(videos) ||
+      videos.length === 0
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Some data is missing or invalid" });
+    }
+
+    // Check for duplicate course
+    const existingCourse = await Courses.findOne({ courseName });
+    if (existingCourse) {
+      return res
+        .status(409)
+        .json({ message: "A course with this title already exists" });
+    }
+
+    // Create and save the course
+    const newCourse = new Courses({
+      courseName,
+      sector,
+      videos,
+      coverImage,
+      adminId,
+    });
+
+    await newCourse.save();
+
+    res.status(201).json({
+      message: "Course created successfully",
+    });
+  } catch (error) {
+    console.error("Error creating course:", error);
+    res.status(500).json({
+      message: "Failed to create course",
+      error: error.message,
+    });
+  }
+});
+// Endpoint to get all courses
+app.get("/courses", async (req, res) => {
+  try {
+    const courses = await Courses.find();
+
+    if (courses.length === 0) {
+      return res.status(404).json({ message: "No courses found" });
+    }
+
+    res.status(200).json({
+      message: "Courses retrieved successfully",
+      courses,
+    });
+  } catch (error) {
+    console.error("Error fetching courses:", error);
+    res.status(500).json({
+      message: "Failed to fetch courses",
+      error: error.message,
+    });
   }
 });
 
