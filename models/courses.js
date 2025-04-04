@@ -17,6 +17,11 @@ const GallerySchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    description: {
+      type: String,
+      required: true,
+      index: true,
+    },
     coverImage: {
       url: { type: String, default: "" },
       public_Id: { type: String, default: "" },

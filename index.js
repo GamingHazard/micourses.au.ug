@@ -623,8 +623,15 @@ app.patch("/change-password/:id", async (req, res) => {
 // Endpoint for  creating courses
 app.post("/create-course", async (req, res) => {
   try {
-    const { courseName, sector, videos, duration, coverImage, adminId } =
-      req.body;
+    const {
+      courseName,
+      sector,
+      videos,
+      duration,
+      coverImage,
+      adminId,
+      description,
+    } = req.body;
 
     // Basic validation
     if (
@@ -655,6 +662,8 @@ app.post("/create-course", async (req, res) => {
       videos,
       coverImage,
       adminId,
+      description,
+      duration,
     });
 
     await newCourse.save();
