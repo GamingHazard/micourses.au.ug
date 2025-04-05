@@ -679,25 +679,29 @@ app.post("/create-course", async (req, res) => {
     });
   }
 });
-// Endpoint to get all courses
-app.get("/courses", async (req, res) => {
+// endpoint to get  school gallery images
+app.get("/course/:category", async (req, res) => {
   try {
-    const courses = await Courses.find();
+    const { categories } = req.params; // Extract school ID from route parameters
+
+    // Fetch galleries for the given school ID
+    const courses = await Courses.find({ sector: categories }).sort({
+      createdAt: -1,
+    });
 
     if (courses.length === 0) {
-      return res.status(404).json({ message: "No courses found" });
+      return res
+        .status(404)
+        .json({ message: "No course found for this sector" });
     }
 
     res.status(200).json({
-      message: "Courses retrieved successfully",
+      message: "Galleries fetched successfully",
       courses,
     });
   } catch (error) {
-    console.error("Error fetching courses:", error);
-    res.status(500).json({
-      message: "Failed to fetch courses",
-      error: error.message,
-    });
+    console.error("Error fetching galleries:", error);
+    res.status(500).json({ message: "Failed to fetch galleries" });
   }
 });
 
