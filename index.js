@@ -679,13 +679,12 @@ app.post("/create-course", async (req, res) => {
     });
   }
 });
-// endpoint to get  school gallery images
 app.get("/course/:category", async (req, res) => {
   try {
-    const { categories } = req.params; // Extract school ID from route parameters
+    const { category } = req.params; // Corrected from 'categories' to 'category'
 
-    // Fetch galleries for the given school ID
-    const courses = await Courses.find({ sector: categories }).sort({
+    // Fetch courses for the given category
+    const courses = await Courses.find({ sector: category }).sort({
       createdAt: -1,
     });
 
@@ -696,12 +695,12 @@ app.get("/course/:category", async (req, res) => {
     }
 
     res.status(200).json({
-      message: "Galleries fetched successfully",
+      message: "Courses fetched successfully",
       courses,
     });
   } catch (error) {
-    console.error("Error fetching galleries:", error);
-    res.status(500).json({ message: "Failed to fetch galleries" });
+    console.error("Error fetching courses:", error);
+    res.status(500).json({ message: "Failed to fetch courses" });
   }
 });
 
