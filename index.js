@@ -437,12 +437,11 @@ app.post("/recovery-email", async (req, res) => {
   }
 });
 // Endpoint to verify recovery email
-app.post("/verify-code", async (req, res) => {
+app.post("/verify-recover-email", async (req, res) => {
   const { email, code, id } = req.body;
 
   try {
-    // Query the database to find a user with the provided email and reset code
-    const user = await Admin.findById({ id });
+    const user = await Admin.findById(id);
 
     // If no user is found, return an error
     if (!user) {
