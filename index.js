@@ -236,6 +236,7 @@ app.post("/admin-login", async (req, res) => {
         email: user.email,
         profilePicture: user.profilePicture,
         contact: user.contact,
+        recoveryEmail: user.recoverEmail,
       },
     });
   } catch (error) {
