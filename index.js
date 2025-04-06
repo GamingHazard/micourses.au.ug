@@ -730,6 +730,57 @@ app.delete("/delete-course/:id", async (req, res) => {
   }
 });
 
+app.patch("/update-course/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1) Start with an empty updates object
+    const updates = {};
+
+    // 2) Only copy over the fields the client sent
+    [
+      "courseName",
+      "sector",
+      "duration",
+      "description",
+      "coverImage",
+      "videos",
+      "adminId",
+    ].forEach((field) => {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    });
+
+    // 3) Make sure there's something to update
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: "No valid fields to update" });
+    }
+
+    // 4) Perform the update
+    const updatedCourse = await Courses.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedCourse) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    res.status(200).json({
+      message: "Course updated successfully",
+      course: updatedCourse,
+    });
+  } catch (error) {
+    console.error("Error updating course:", error);
+    res.status(500).json({
+      message: "Failed to update course",
+      error: error.message,
+    });
+  }
+});
+
 //endpoint to unfollow a user
 app.post("/users/unfollow", async (req, res) => {
   const { loggedInUserId, targetUserId } = req.body;
