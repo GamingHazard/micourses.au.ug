@@ -437,7 +437,7 @@ app.post("/recovery-email", async (req, res) => {
   }
 });
 // Endpoint to verify recovery email
-app.post("/verify-recover-email", async (req, res) => {
+app.patch("/verify-recover-email", async (req, res) => {
   const { email, code, id } = req.body;
 
   try {
