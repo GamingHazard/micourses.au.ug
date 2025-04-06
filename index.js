@@ -709,18 +709,30 @@ app.get("/course/:category", async (req, res) => {
 // Endpoint for deleting a course
 app.delete("/delete-course/:id", async (req, res) => {
   try {
-    const { id } = req.params; // Get the course ID from the URL params
+    const { id } = req.params;
 
-    // Find and delete the course by _id
-    const deletedCourse = await Courses.findByIdAndDelete(id);
-
-    if (!deletedCourse) {
+    // 1) Find the course first (so we know its images/videos)
+    const course = await Courses.findById(id);
+    if (!course) {
       return res.status(404).json({ message: "Course not found" });
     }
 
+    // 2) Delete cover image
+    await cloudinary.uploader.destroy(course.coverImage.public_Id);
+
+    // 3) Delete each video
+    for (const vid of course.videos) {
+      await cloudinary.uploader.destroy(vid.public_Id, {
+        resource_type: "video",
+      });
+    }
+
+    // 4) Finally remove the course document
+    await Courses.findByIdAndDelete(id);
+
     res.status(200).json({
       message: `Course with ID "${id}" deleted successfully`,
-      deletedCourse,
+      deletedCourse: course,
     });
   } catch (error) {
     console.error("Error deleting course:", error);
@@ -730,14 +742,22 @@ app.delete("/delete-course/:id", async (req, res) => {
   }
 });
 
+// Endpoint to update courses
 app.patch("/update-course/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    // 1) Find the course first (so we know its images )
+    const course = await Courses.findById(id);
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
 
-    // 1) Start with an empty updates object
+    // 2) Delete cover image
+    await cloudinary.uploader.destroy(course.coverImage.public_Id);
+    // 3) create  an empty updates object
     const updates = {};
 
-    // 2) Only copy over the fields the client sent
+    // 4) Only copy over the fields the client sent
     [
       "courseName",
       "sector",
@@ -752,12 +772,12 @@ app.patch("/update-course/:id", async (req, res) => {
       }
     });
 
-    // 3) Make sure there's something to update
+    // 5) Make sure there's something to update
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ message: "No valid fields to update" });
     }
 
-    // 4) Perform the update
+    // 6) Perform the update
     const updatedCourse = await Courses.findByIdAndUpdate(
       id,
       { $set: updates },
