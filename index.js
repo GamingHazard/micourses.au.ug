@@ -447,7 +447,7 @@ app.patch("/verify-recover-email", async (req, res) => {
     if (!user) {
       return res.status(400).json({ message: "user not found" });
     }
-    if (code === resetCode) {
+    if (code === user.resetCode) {
       // Clear the reset code after successful verification to prevent reuse
       user.resetCode = "";
       user.recoverEmail = email;
