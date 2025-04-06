@@ -401,7 +401,7 @@ app.post("/recovery-email", async (req, res) => {
 
   try {
     // Check if the user exists
-    const user = await Admin.findById({ id });
+    const user = await Admin.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // Generate 5-digit alphanumeric code
