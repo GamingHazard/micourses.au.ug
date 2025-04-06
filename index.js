@@ -464,31 +464,66 @@ app.patch("/verify-recover-email", async (req, res) => {
   }
 });
 // DELETE ACCOUNTS
-app.delete("/delete-admin", async (req, res) => {
+app.delete("/delete-account", async (req, res) => {
   const { id, password } = req.body;
 
+  // 1) Verify admin exists
+  const adminUser = await Admin.findById(id);
+  if (!adminUser) {
+    return res.status(404).json({ message: "Admin not found" });
+  }
+
+  // 2) Validate password
+  const isPasswordValid = await bcrypt.compare(password, adminUser.password);
+  if (!isPasswordValid) {
+    return res.status(401).json({
+      message: "Invalid password. Please check and try again.",
+    });
+  }
+
   try {
-    const user = await Admin.findById({ id });
-    if (!user) {
-      return res.status(404).json({ message: "user not found" });
+    // 3) Fetch all courses belonging to this admin
+    const courses = await Courses.find({ adminId: id });
+    if (courses.length === 0) {
+      // nothing to delete
+      return res
+        .status(200)
+        .json({ message: "Account deleted. No courses to remove." });
     }
 
-    // Validate the password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        message: "Invalid password. Please check and try again.",
-      });
-    } else {
-      Admin.findByIdAndDelete({ id });
-    }
+    // 4) Collect all coverImage public_Ids
+    const coverIds = courses.map((c) => c.coverImage.public_Id);
+
+    // 5) Collect all video public_Ids
+    const videoIds = courses.flatMap((c) => c.videos.map((v) => v.public_Id));
+
+    // 6) Delete all cover images
+    await Promise.all(
+      coverIds.map((public_Id) => cloudinary.uploader.destroy(public_Id))
+    );
+
+    // 7) Delete all videos
+    await Promise.all(
+      videoIds.map((public_Id) =>
+        cloudinary.uploader.destroy(public_Id, { resource_type: "video" })
+      )
+    );
+
+    // 8) Delete the course documents
+    await Courses.deleteMany({ adminId: id });
+
+    // 9) Optionally delete the admin user itself
+    await Admin.findByIdAndDelete(id);
+
+    res
+      .status(200)
+      .json({ message: "Account and all related courses deleted." });
   } catch (error) {
-    console.error("Error deleting introduction content:", error.message);
-
-    // Handle unexpected errors
+    console.error("Error deleting account:", error);
     res.status(500).json({
       message:
-        "An unexpected error occurred while deleting the introduction content. Please try again later.",
+        "An unexpected error occurred while deleting the account. Please try again later.",
+      error: error.message,
     });
   }
 });
