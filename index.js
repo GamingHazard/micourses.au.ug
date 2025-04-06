@@ -395,9 +395,8 @@ app.post("/reset-password", async (req, res) => {
     res.status(400).json({ message: "Invalid or expired token" });
   }
 });
-
-// RECOVERY EMAIL VERIFICATION
-app.post("/verification-code", async (req, res) => {
+// Endpoint to set a recovery email
+app.post("/recovery-email", async (req, res) => {
   const { email, id } = req.body;
 
   try {
@@ -414,7 +413,7 @@ app.post("/verification-code", async (req, res) => {
 
     // Configure the nodemailer transporter
     const transporter = nodemailer.createTransport({
-      service: "gmail",
+      service: "gmail", // Change to your email service provider
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
@@ -426,7 +425,7 @@ app.post("/verification-code", async (req, res) => {
       from: "micourses.com",
       to: email,
       subject: "Password Reset Code",
-      text: `Your email verification code  is: ${resetCode}`,
+      text: `Your verification code is: ${resetCode}`,
     };
 
     // Send the email
@@ -437,33 +436,33 @@ app.post("/verification-code", async (req, res) => {
     res.status(500).json({ message: "An error occurred", error });
   }
 });
-// verify the   code sent to the email
-app.post("/verify-email", async (req, res) => {
-  const { id, code, email } = req.body;
+// Endpoint to verify recovery email
+app.post("/verify-code", async (req, res) => {
+  const { email, code, id } = req.body;
 
   try {
+    // Query the database to find a user with the provided email and reset code
     const user = await Admin.findById({ id });
 
     // If no user is found, return an error
     if (!user) {
-      return res.status(404).json({ message: "user not found" });
+      return res.status(400).json({ message: "user not found" });
     }
-
-    if (code === user.resetCode) {
-      user.recoverEmail = email;
+    if (code === resetCode) {
+      // Clear the reset code after successful verification to prevent reuse
       user.resetCode = "";
-      await user.save();
-    }
+      user.recoverEmail = email;
 
-    res.status(200).json({
-      message: "Email verified",
-    });
+      await user.save();
+      res.status(200).json({
+        message: "Code verified",
+      });
+    }
   } catch (error) {
     console.error("Error verifying reset code:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
-
 // DELETE ACCOUNTS
 app.delete("/delete-admin", async (req, res) => {
   const { id, password } = req.body;
