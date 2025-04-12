@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
+  profilePicture: { type: String, default: "" },
+
   name: {
     type: String,
     unique: true,
@@ -10,7 +12,33 @@ const userSchema = new mongoose.Schema({
   contact: { type: String, required: true, unique: true },
   gender: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  profilePicture: { type: String },
+  enrolledCourses: [
+    {
+      course: { type: mongoose.Schema.Types.ObjectId, ref: "Courses" },
+      enrolledAt: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+  ],
+  savedCourses: [
+    {
+      course: { type: mongoose.Schema.Types.ObjectId, ref: "Courses" },
+      savedAt: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+  ],
+  finishedCourses: [
+    {
+      course: { type: mongoose.Schema.Types.ObjectId, ref: "Courses" },
+      finishedAts: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+  ],
   verified: {
     type: Boolean,
     default: false,

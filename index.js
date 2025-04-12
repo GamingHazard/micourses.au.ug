@@ -468,7 +468,7 @@ app.delete("/delete-account", async (req, res) => {
   const { id, password } = req.body;
 
   // 1) Verify admin exists
-  const adminUser = await Admin.findById(id);
+  const adminUser = await Admin.findById({ id });
   if (!adminUser) {
     return res.status(404).json({ message: "Admin not found" });
   }
@@ -751,17 +751,21 @@ app.delete("/delete-course/:id", async (req, res) => {
       return res.status(404).json({ message: "Course not found" });
     }
 
-    // 2) Delete cover image
-    await cloudinary.uploader.destroy(course.coverImage.public_Id);
+    // 2) Delete cover image using the correct property name
+    const coverImageResult = await cloudinary.uploader.destroy(
+      course.coverImage.public_Id
+    );
+    console.log("Cover image delete response:", coverImageResult);
 
-    // 3) Delete each video
+    // 3) Delete each video with logging
     for (const vid of course.videos) {
-      await cloudinary.uploader.destroy(vid.public_Id, {
+      const videoResult = await cloudinary.uploader.destroy(vid.public_Id, {
         resource_type: "video",
       });
+      console.log(`Video delete response for ${vid.public_Id}:`, videoResult);
     }
 
-    // 4) Finally remove the course document
+    // 4) Finally, remove the course document from the database
     await Courses.findByIdAndDelete(id);
 
     res.status(200).json({
@@ -835,64 +839,30 @@ app.patch("/update-course/:id", async (req, res) => {
   }
 });
 
-//endpoint to unfollow a user
-app.post("/users/unfollow", async (req, res) => {
-  const { loggedInUserId, targetUserId } = req.body;
+// endpoint for saving a particular course
+app.put("/course/save", async (req, res) => {
+  const { courseId, userId } = req.body;
 
   try {
-    await User.findByIdAndUpdate(targetUserId, {
-      $pull: { followers: loggedInUserId },
-    });
+    const courses = await Courses.findById({ courseId });
+    const user = await User.findById({ userId });
 
-    res.status(200).json({ message: "Unfollowed successfully" });
-  } catch (error) {
-    res.status(500).json({ message: "Error unfollowing user" });
-  }
-});
-
-//endpoint to create a new post in the backend
-app.post("/create-post", async (req, res) => {
-  try {
-    const { content, userId } = req.body;
-
-    const newPostData = {
-      user: userId,
-    };
-
-    if (content) {
-      newPostData.content = content;
+    if (!courses || !user) {
+      return res.status(404).json({ message: "user or course not found" });
     }
-
-    const newPost = new Post(newPostData);
-
-    await newPost.save();
-
-    res.status(200).json({ message: "Post saved successfully" });
-  } catch (error) {
-    res.status(500).json({ message: "post creation failed" });
-  }
-});
-
-//endpoint for liking a particular post
-app.put("/posts/:postId/:userId/like", async (req, res) => {
-  const postId = req.params.postId;
-  const userId = req.params.userId; // Assuming you have a way to get the logged-in user's ID
-
-  try {
-    const post = await Post.findById(postId).populate("user", "name");
-
-    const updatedPost = await Post.findByIdAndUpdate(
-      postId,
+    const updatedCourse = await Courses.findByIdAndUpdate(
+      courseId,
       { $addToSet: { likes: userId } }, // Add user's ID to the likes array
       { new: true } // To return the updated post
     );
 
-    if (!updatedPost) {
-      return res.status(404).json({ message: "Post not found" });
-    }
-    updatedPost.user = post.user;
-
-    res.json(updatedPost);
+    // updating the user's saved courses
+    await User.findByIdAndUpdate(
+      userId,
+      { $addToSet: { savedCourses: courseId } }, // Add user's ID to the likes array
+      { new: true } // To return the updated post
+    );
+    res.json(updatedCourse);
   } catch (error) {
     console.error("Error liking post:", error);
     res
@@ -901,47 +871,63 @@ app.put("/posts/:postId/:userId/like", async (req, res) => {
   }
 });
 
-//endpoint to unlike a post
-app.put("/posts/:postId/:userId/unlike", async (req, res) => {
-  const postId = req.params.postId;
-  const userId = req.params.userId;
+//endpoint to unsave a post
+app.put("/course/unsave", async (req, res) => {
+  const { courseId, userId } = req.body;
 
   try {
-    const post = await Post.findById(postId).populate("user", "name");
+    const courses = await Courses.findById({ courseId });
+    const user = await User.findById({ userId });
 
-    const updatedPost = await Post.findByIdAndUpdate(
-      postId,
+    if (!user || !courses) {
+      return res.status(404).json({ message: "user or course not found" });
+    }
+    const updatedCourse = await Courses.findByIdAndUpdate(
+      courseId,
       { $pull: { likes: userId } },
       { new: true }
     );
+    await User.findByIdAndUpdate(
+      userId,
+      { $pull: { savedCoursess: courseId } },
+      { new: true }
+    );
 
-    updatedPost.user = post.user;
-
-    if (!updatedPost) {
-      return res.status(404).json({ message: "Post not found" });
-    }
-
-    res.json(updatedPost);
+    res.json(updatedCourse);
   } catch (error) {
-    console.error("Error unliking post:", error);
+    console.error("Error unsaving post:", error);
     res
       .status(500)
-      .json({ message: "An error occurred while unliking the post" });
+      .json({ message: "An error occurred while unsaving the course" });
   }
 });
 
-//endpoint to get all the posts
-app.get("/get-posts", async (req, res) => {
+// endpoint to enroll for a course
+app.put("/course/enroll", async (req, res) => {
+  const { courseId, userId } = req.body;
   try {
-    const posts = await Post.find()
-      .populate("user", "name")
-      .sort({ createdAt: -1 });
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $addToSet: { enrolledCourses: courseId } }, // Add course's ID to the enrolledCourses array
+      { new: true } // To return the updated post
+    );
+    if (!user) {
+      return res.status(404).json({ message: "user not found" });
+    }
 
-    res.status(200).json(posts);
+    await user.save(); //save the updates
+
+    let enrolledCourse = user.enrolledCourses.course === courseId;
+    res.status(200).json({
+      message: `yous have successfully enrolled for${""} ${
+        enrolledCourse.courseName
+      }`,
+    });
   } catch (error) {
+    console.error("Error liking post:", error);
     res
       .status(500)
-      .json({ message: "An error occurred while getting the posts" });
+      .json({ message: "An error occurred while liking the post" });
   }
 });
 
