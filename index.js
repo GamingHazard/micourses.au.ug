@@ -335,7 +335,6 @@ app.patch("/register-user", async (req, res) => {
       gender,
       dateOfBirth: birth,
       contact,
-      password,
     };
 
     const updatedUser = await User.findByIdAndUpdate(id, updateFields, {
@@ -349,7 +348,7 @@ app.patch("/register-user", async (req, res) => {
 
     res
       .status(200)
-      .json({ message: "User updated successfully", admin: updatedUser });
+      .json({ message: "User updated successfully", user: updatedUser });
   } catch (error) {
     console.error("Update user error:", error);
     res.status(500).json({ error: error.message });

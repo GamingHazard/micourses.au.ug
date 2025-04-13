@@ -15,7 +15,7 @@ const userSchema = new mongoose.Schema({
   contact: { type: String, unique: true, default: "" },
   gender: { type: String, default: "" },
   dateOfBirth: { type: Date },
-  password: { type: String, default: "" },
+
   enrolledCourses: [
     {
       course: { type: mongoose.Schema.Types.ObjectId, ref: "Courses" },
