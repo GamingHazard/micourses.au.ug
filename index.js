@@ -315,7 +315,7 @@ app.post("/user-email", async (req, res) => {
 
     // Send the email
     await transporter.sendMail(mailOptions);
-    res.json({ message: "verification code sent to email" });
+    res.status(200).json({ message: "verification code sent to email" });
   } catch (error) {
     console.error("Error in /get-code:", error);
     res.status(500).json({ message: "An error occurred", error });
