@@ -759,7 +759,9 @@ app.delete("/delete-course/:id", async (req, res) => {
 
     // 3) Delete each video with logging
     for (const vid of course.videos) {
-      const videoResult = await cloudinary.uploader.destroy(vid.public_Id);
+      const videoResult = await cloudinary.uploader.destroy(vid.public_Id, {
+        resource_type: "video",
+      });
       console.log(`Video delete response for ${vid.public_Id}:`, videoResult);
     }
 
