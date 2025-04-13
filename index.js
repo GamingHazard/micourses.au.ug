@@ -739,6 +739,27 @@ app.get("/course/:category", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch courses" });
   }
 });
+// Endpoint to get all courses
+app.get("/courses", async (req, res) => {
+  try {
+    // Fetch courses for the given category
+    const courses = await Courses.find().sort({
+      createdAt: -1,
+    });
+
+    if (courses.length === 0) {
+      return res.status(404).json({ message: "No course found " });
+    }
+
+    res.status(200).json({
+      message: "Courses fetched successfully",
+      courses,
+    });
+  } catch (error) {
+    console.error("Error fetching courses:", error);
+    res.status(500).json({ message: "Failed to fetch courses" });
+  }
+});
 
 // Endpoint for deleting a course
 app.delete("/delete-course/:id", async (req, res) => {
