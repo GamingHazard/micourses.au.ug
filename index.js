@@ -245,33 +245,6 @@ app.post("/admin-login", async (req, res) => {
   }
 });
 
-app.post("/register-user", async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
-
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: "Email already registered" });
-    }
-
-    //create a new user
-    const newUser = new User({ name, email, password });
-
-    //generate and store the verification token
-    newUser.verificationToken = crypto.randomBytes(20).toString("hex");
-
-    //save the  user to the database
-    await newUser.save();
-
-    //send the verification email to the user
-    sendVerificationEmail(newUser.email, newUser.verificationToken);
-
-    res.status(200).json({ message: "Registration successful" });
-  } catch (error) {
-    console.log("error registering user", error);
-    res.status(500).json({ message: "error registering user" });
-  }
-});
 app.post("/user-email", async (req, res) => {
   const { email } = req.body;
 
@@ -325,12 +298,13 @@ app.post("/user-email", async (req, res) => {
 app.patch("/verify-user-email", async (req, res) => {
   const { code } = req.body;
   try {
-    const user = await User.findOneAndUpdate({ verificationToken: code });
+    const user = await User.find({ code });
 
     // If no user is found, return an error
     if (!user) {
-      return res.status(400).json({ message: "user not found" });
+      return res.status(404).json({ message: "user not found" });
     }
+
     user.verified = true;
     user.verificationToken = "";
 
@@ -359,7 +333,7 @@ app.patch("/register-user", async (req, res) => {
       firstName,
       secondName,
       gender,
-      birth,
+      dateOfBirth: birth,
       contact,
       password,
     };

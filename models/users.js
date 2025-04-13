@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const userSchema = new mongoose.Schema({
   profilePicture: { type: String, default: "" },
 
-  firstmName: {
+  firstName: {
     type: String,
     default: "",
   },
@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema({
   email: { type: String, unique: true, default: "" },
   contact: { type: String, unique: true, default: "" },
   gender: { type: String, default: "" },
-  dateOfBirth: { type: String, default: "" },
+  dateOfBirth: { type: Date },
   password: { type: String, default: "" },
   enrolledCourses: [
     {
