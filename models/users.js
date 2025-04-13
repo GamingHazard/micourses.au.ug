@@ -3,15 +3,19 @@ const mongoose = require("mongoose");
 const userSchema = new mongoose.Schema({
   profilePicture: { type: String, default: "" },
 
-  name: {
+  firstmName: {
     type: String,
-    unique: true,
-    required: true,
+    default: "",
   },
-  email: { type: String, required: true, unique: true },
-  contact: { type: String, required: true, unique: true },
-  gender: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
+  secondName: {
+    type: String,
+    default: "",
+  },
+  email: { type: String, unique: true, default: "" },
+  contact: { type: String, unique: true, default: "" },
+  gender: { type: String, default: "" },
+  dateOfBirth: { type: String, default: "" },
+  password: { type: String, default: "" },
   enrolledCourses: [
     {
       course: { type: mongoose.Schema.Types.ObjectId, ref: "Courses" },

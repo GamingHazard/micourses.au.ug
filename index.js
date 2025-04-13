@@ -272,7 +272,115 @@ app.post("/register-user", async (req, res) => {
     res.status(500).json({ message: "error registering user" });
   }
 });
+app.post("/user-email", async (req, res) => {
+  const { email } = req.body;
 
+  try {
+    // Check if the user exists
+    const user = await User.findOne({ email });
+    if (user) return res.status(401).json({ message: "Email already exists" });
+
+    function get6DigitRandom() {
+      // Generates a random number between 100000 and 999999
+      return Math.floor(100000 + Math.random() * 900000);
+    }
+
+    // Generate 5-digit alphanumeric code
+    const verificationCode = get6DigitRandom();
+
+    // Create a new admin user
+    const newUser = new User({
+      email: email.trim(),
+      verificationToken: verificationCode,
+    });
+    // Send the verification email to the user
+    await newUser.save();
+
+    // Configure the nodemailer transporter
+    const transporter = nodemailer.createTransport({
+      service: "gmail", // Change to your email service provider
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    // Email options
+    const mailOptions = {
+      from: "micourses.com",
+      to: email,
+      subject: "Email Verification code",
+      text: `Your email verification code is: ${verificationCode}`,
+    };
+
+    // Send the email
+    await transporter.sendMail(mailOptions);
+    res.json({ message: "verification code sent to email" });
+  } catch (error) {
+    console.error("Error in /get-code:", error);
+    res.status(500).json({ message: "An error occurred", error });
+  }
+});
+// Endpoint to verify recovery email
+app.patch("/verify-user-email", async (req, res) => {
+  const { code } = req.body;
+  try {
+    const user = await User.findOneAndUpdate({ verificationToken: code });
+
+    // If no user is found, return an error
+    if (!user) {
+      return res.status(400).json({ message: "user not found" });
+    }
+    user.verified = true;
+    user.verificationToken = "";
+
+    await user.save();
+    res.status(200).json({
+      message: "email verified",
+      verified: user.verified,
+      userId: user._id,
+    });
+  } catch (error) {
+    console.error("Error verifying reset code:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+// UPDATING ENDPOINTS
+app.patch("/register-user", async (req, res) => {
+  const { firstName, secondName, gender, birth, contact, password, id } =
+    req.body;
+
+  if (!mongoose.Types.ObjectId.isValid({ id })) {
+    return res.status(400).json({ error: "Invalid user ID" });
+  }
+
+  try {
+    const updateFields = {
+      firstName,
+      secondName,
+      gender,
+      birth,
+      contact,
+      password,
+    };
+
+    const updatedUser = await User.findByIdAndUpdate(id, updateFields, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!updatedUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res
+      .status(200)
+      .json({ message: "User updated successfully", admin: updatedUser });
+  } catch (error) {
+    console.error("Update user error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 app.post("/user-login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -301,12 +409,16 @@ app.post("/get-code", async (req, res) => {
 
   try {
     // Check if the user exists
-    const user = await Admin.findOne({ email });
+    const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Generate 5-digit alphanumeric code
-    const resetCode = crypto.randomBytes(3).toString("hex");
+    function get6DigitRandom() {
+      // Generates a random number between 100000 and 999999
+      return Math.floor(100000 + Math.random() * 900000);
+    }
 
+    // Generate 5-digit alphanumeric code
+    const resetCode = get6DigitRandom();
     // Save the reset code to the user's document in the database
     user.resetCode = resetCode;
     await user.save();
